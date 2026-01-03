@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Post Details</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body, html { margin: 0; padding: 0; background-color: #121212; font-family: 'Poppins', sans-serif; color: white; height: 100%; }
+        
+        /* Header */
+        .top-nav {
+            display: flex; justify-content: space-between; align-items: center; padding: 15px 20px;
+            background-color: #121212; position: sticky; top: 0; z-index: 100;
+        }
+        .user-info-header { display: flex; align-items: center; gap: 10px; }
+        .avatar-small { width: 32px; height: 32px; border-radius: 50%; background: #444; object-fit: cover; }
+        .username-header { font-size: 14px; font-weight: 600; }
+        
+        /* Content */
+        .scroll-container { padding: 0 15px 80px 15px; overflow-y: auto; }
+        .post-title { font-size: 18px; font-weight: 700; margin-bottom: 10px; margin-top: 10px; }
+        .post-content { font-size: 15px; line-height: 1.6; color: #eee; white-space: pre-wrap; margin-bottom: 15px; }
+        .post-meta { font-size: 12px; color: #666; display: flex; justify-content: space-between; margin-bottom: 20px; border-bottom: 1px solid #222; padding-bottom: 15px; }
+
+        /* Comments Section */
+        .comments-section { margin-top: 10px; }
+        .comment-tabs { font-size: 14px; font-weight: 600; margin-bottom: 15px; color: #888; }
+        .comment-item { display: flex; gap: 10px; margin-bottom: 20px; }
+        .comment-avatar { width: 32px; height: 32px; border-radius: 50%; background: #333; flex-shrink: 0; }
+        .comment-body { flex: 1; }
+        .comment-user { font-size: 13px; color: #888; font-weight: 600; margin-bottom: 2px; }
+        .comment-text { font-size: 14px; color: #ddd; margin-bottom: 5px; }
+        .comment-image { max-width: 150px; border-radius: 8px; margin-top: 5px; cursor: pointer; }
+        .comment-actions { display: flex; gap: 15px; font-size: 12px; color: #666; font-weight: 600; }
+        .action-link { cursor: pointer; }
+        .comment-like-btn.liked { color: #ff2442; }
+
+        /* Footer Input */
+        .bottom-input-bar {
+            position: fixed; bottom: 0; left: 0; width: 100%;
+            background-color: #121212; border-top: 1px solid #222;
+            padding: 10px 15px; padding-bottom: 20px;
+            display: flex; align-items: center; justify-content: space-between; z-index: 200; box-sizing: border-box;
+        }
+        
+        .input-wrapper {
+            background: #1e1e1e; border-radius: 20px; padding: 8px 15px;
+            display: flex; align-items: center; flex: 1; margin-right: 15px;
+        }
+        .input-wrapper input {
+            background: transparent; border: none; color: white; width: 100%; outline: none; font-size: 14px;
+        }
+        .input-icons { display: flex; gap: 10px; color: #888; font-size: 18px; margin-left: 5px; align-items: center;}
+        
+        .action-icons-right { display: flex; gap: 20px; color: #efefef; font-size: 22px; align-items: center; }
+        .icon-with-count { display: flex; flex-direction: column; align-items: center; font-size: 10px; gap: 2px; }
+        .icon-with-count i { font-size: 24px; cursor: pointer; transition: color 0.2s; }
+        .liked-active { color: #ff2442; }
+        .collected-active { color: #ffdb00; }
+
+        /* Loader */
+        #loadingOverlay { position: fixed; inset: 0; background: #121212; display: flex; justify-content: center; align-items: center; z-index: 999; }
+        
+        /* Modal for Image Preview */
+        .image-modal { position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); display:none; justify-content:center; align-items:center; z-index:3000;}
+        .image-modal img { max-width:90%; max-height:90%; }
+    </style>
+</head>
+<body>
+
+    <div id="loadingOverlay"><i class="fas fa-spinner fa-spin fa-2x"></i></div>
+
+    <div class="top-nav">
+        <i class="fas fa-arrow-left" onclick="history.back()" style="font-size: 20px; cursor: pointer;"></i>
+        <div class="user-info-header">
+            <img id="postUserAvatar" src="https://via.placeholder.com/32" class="avatar-small">
+            <span id="postUserName" class="username-header">User</span>
+        </div>
+        <i class="fas fa-ellipsis-h" style="font-size: 18px;"></i>
+    </div>
+
+    <div class="scroll-container">
+        <h2 id="postTitle" class="post-title"></h2>
+        <div id="postContent" class="post-content"></div>
+        <div class="post-meta">
+            <span id="postDate">Just now</span>
+            <span><i class="far fa-eye"></i> <span id="viewCountDisplay">0</span> View</span>
+        </div>
+
+        <div class="comments-section">
+            <div class="comment-tabs">Comments <span id="commentsTotal">0</span></div>
+            <div id="commentsList">
+                </div>
+        </div>
+    </div>
+
+    <div class="bottom-input-bar">
+        <div class="input-wrapper">
+            <input type="text" id="commentInput" placeholder="Say something...">
+            <div class="input-icons">
+                <i class="fas fa-at"></i>
+                <i class="far fa-smile"></i>
+                <label for="imgUpload" style="cursor: pointer;"><i class="far fa-image"></i></label>
+                <input type="file" id="imgUpload" accept="image/*" style="display: none;">
+                <i class="fas fa-paper-plane" id="sendBtn" style="color: #ff2442; cursor: pointer; margin-left:5px;"></i>
+            </div>
+        </div>
+        <div class="action-icons-right">
+            <div class="icon-with-count">
+                <i class="far fa-heart" id="likeBtn"></i>
+                <span id="likeCount">0</span>
+            </div>
+            <div class="icon-with-count">
+                <i class="far fa-star" id="collectBtn"></i>
+                <span id="collectCount">0</span>
+            </div>
+            <div class="icon-with-count">
+                <i class="far fa-comment-dots"></i>
+                <span id="commentIconCount">0</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="image-modal" id="imageModal" onclick="this.style.display='none'">
+        <img id="fullImage" src="">
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getFirestore, doc, getDoc, updateDoc, collection, addDoc, query, orderBy, onSnapshot, increment, runTransaction, serverTimestamp, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyAuEfa4lBdoarHqUBmpWnVdYEhLYMUW0Wk",
+            authDomain: "rednote-99494.firebaseapp.com",
+            projectId: "rednote-99494",
+            storageBucket: "rednote-99494.firebasestorage.app",
+            messagingSenderId: "381708373042",
+            appId: "1:381708373042:web:3b2b66b9aefba8b98bc02b"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+
+        // Cloudinary Config
+        const CLOUDINARY_URL = "https://api.cloudinary.com/v1_1/dsvxv96q8/image/upload";
+        const CLOUDINARY_UPLOAD_PRESET = "Rednote";
+
+        // Get Post ID from URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const postId = urlParams.get('id');
+
+        let currentUser = null;
+        let replyingTo = null; // Username we are replying to
+
+        // Initialize
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                currentUser = user;
+                if (!postId) {
+                    alert('Post not found');
+                    window.location.href = 'home.html';
+                    return;
+                }
+                await loadPostData();
+                setupRealtimeComments();
+                registerView();
+                checkInteractionStatus();
+                document.getElementById('loadingOverlay').style.display = 'none';
+            } else {
+                window.location.href = "index.html";
+            }
+        });
+
+        // 1. Load Post Content
+        // 1. Load Post Content & Publisher Info
+        async function loadPostData() {
+            const docRef = doc(db, "posts", postId);
+            const docSnap = await getDoc(docRef);
+
+            if (docSnap.exists()) {
+                const postData = docSnap.data();
+                const publisherId = postData.userId; // الحصول على آيدي الناشر من المنشور
+
+                // جلب بيانات الناشر من مجموعة المستخدمين لضمان عرض أحدث اسم وصورة
+                if (publisherId) {
+                    const userRef = doc(db, "users", publisherId);
+                    const userSnap = await getDoc(userRef);
+                    
+                    if (userSnap.exists()) {
+                        const userData = userSnap.data();
+                        // عرض اسم وصورة الناشر الحقيقية من بروفايله
+                        document.getElementById('postUserName').innerText = userData.displayName || "User";
+                        if (userData.photoURL) {
+                            document.getElementById('postUserAvatar').src = userData.photoURL;
+                        }
+                    } else {
+                        // حالة احتياطية إذا لم يوجد المستخدم في مجموعة users
+                        document.getElementById('postUserName').innerText = postData.userName || "User";
+                        if (postData.userPhoto) {
+                            document.getElementById('postUserAvatar').src = postData.userPhoto;
+                        }
+                    }
+                }
+
+                // عرض محتوى المنشور
+                document.getElementById('postTitle').innerText = postData.title || "Note";
+                document.getElementById('postContent').innerText = postData.content;
+                
+                // تنسيق تاريخ النشر
+                const date = postData.createdAt?.toDate ? postData.createdAt.toDate() : new Date();
+                document.getElementById('postDate').innerText = date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+
+                // عرض الإحصائيات (إعجاب، مشاهدة، حفظ)
+                document.getElementById('likeCount').innerText = postData.likes || 0;
+                document.getElementById('viewCountDisplay').innerText = postData.views || 0;
+                document.getElementById('collectCount').innerText = postData.collects || 0;
+            } else {
+                alert("Post does not exist!");
+                history.back();
+            }
+        }
+
+        // 2. Register View (Unique)
+        async function registerView() {
+            const viewRef = doc(db, "posts", postId, "views", currentUser.uid);
+            const viewSnap = await getDoc(viewRef);
+            
+            if (!viewSnap.exists()) {
+                // First time viewing
+                await setDoc(viewRef, { timestamp: serverTimestamp() });
+                // Increment main counter
+                await updateDoc(doc(db, "posts", postId), {
+                    views: increment(1)
+                });
+                // Update UI immediately for better UX
+                let vCount = parseInt(document.getElementById('viewCountDisplay').innerText);
+                document.getElementById('viewCountDisplay').innerText = vCount + 1;
+            }
+        }
+
+        // 3. Check Interactions (Like/Collect status)
+        async function checkInteractionStatus() {
+            // Check Like
+            const likeRef = doc(db, "posts", postId, "likes", currentUser.uid);
+            const likeSnap = await getDoc(likeRef);
+            const likeBtn = document.getElementById('likeBtn');
+            if(likeSnap.exists()) {
+                likeBtn.classList.remove('far');
+                likeBtn.classList.add('fas', 'liked-active');
+            }
+
+            // Check Collect
+            const collectRef = doc(db, "posts", postId, "collects", currentUser.uid);
+            const colSnap = await getDoc(collectRef);
+            const colBtn = document.getElementById('collectBtn');
+            if(colSnap.exists()) {
+                colBtn.classList.remove('far');
+                colBtn.classList.add('fas', 'collected-active');
+            }
+        }
+
+        // 4. Handle Like Logic
+        document.getElementById('likeBtn').addEventListener('click', async () => {
+            const btn = document.getElementById('likeBtn');
+            const isLiked = btn.classList.contains('liked-active');
+            const postRef = doc(db, "posts", postId);
+            const likeDocRef = doc(db, "posts", postId, "likes", currentUser.uid);
+
+            // Optimistic UI update
+            if (isLiked) {
+                btn.classList.remove('fas', 'liked-active');
+                btn.classList.add('far');
+                document.getElementById('likeCount').innerText = parseInt(document.getElementById('likeCount').innerText) - 1;
+            } else {
+                btn.classList.remove('far');
+                btn.classList.add('fas', 'liked-active');
+                document.getElementById('likeCount').innerText = parseInt(document.getElementById('likeCount').innerText) + 1;
+            }
+
+            try {
+                if (isLiked) {
+                    await runTransaction(db, async (transaction) => {
+                        transaction.delete(likeDocRef);
+                        transaction.update(postRef, { likes: increment(-1) });
+                    });
+                } else {
+                    await runTransaction(db, async (transaction) => {
+                        transaction.set(likeDocRef, { timestamp: serverTimestamp() });
+                        transaction.update(postRef, { likes: increment(1) });
+                    });
+                }
+            } catch (e) {
+                console.error("Like failed", e);
+                // Revert UI if error (optional but recommended)
+            }
+        });
+
+        // 5. Handle Collect Logic
+        document.getElementById('collectBtn').addEventListener('click', async () => {
+            const btn = document.getElementById('collectBtn');
+            const isCollected = btn.classList.contains('collected-active');
+            const postRef = doc(db, "posts", postId);
+            const colDocRef = doc(db, "posts", postId, "collects", currentUser.uid);
+
+            if (isCollected) {
+                btn.classList.remove('fas', 'collected-active');
+                btn.classList.add('far');
+                document.getElementById('collectCount').innerText = parseInt(document.getElementById('collectCount').innerText) - 1;
+            } else {
+                btn.classList.remove('far');
+                btn.classList.add('fas', 'collected-active');
+                document.getElementById('collectCount').innerText = parseInt(document.getElementById('collectCount').innerText) + 1;
+            }
+
+            try {
+                if (isCollected) {
+                    await runTransaction(db, async (transaction) => {
+                        transaction.delete(colDocRef);
+                        transaction.update(postRef, { collects: increment(-1) });
+                    });
+                } else {
+                    await runTransaction(db, async (transaction) => {
+                        transaction.set(colDocRef, { timestamp: serverTimestamp() });
+                        transaction.update(postRef, { collects: increment(1) });
+                    });
+                }
+            } catch (e) {
+                console.error("Collect failed", e);
+            }
+        });
+
+        // 6. Comments System
+        
+        // Listen for comments
+        function setupRealtimeComments() {
+            const q = query(collection(db, "posts", postId, "comments"), orderBy("createdAt", "asc"));
+            onSnapshot(q, (snapshot) => {
+                const list = document.getElementById('commentsList');
+                list.innerHTML = '';
+                document.getElementById('commentsTotal').innerText = snapshot.size;
+                document.getElementById('commentIconCount').innerText = snapshot.size;
+
+                snapshot.forEach(doc => {
+                    const c = doc.data();
+                    const div = document.createElement('div');
+                    div.className = 'comment-item';
+                    div.innerHTML = `
+                        <img src="${c.userAvatar || 'https://via.placeholder.com/32'}" class="comment-avatar">
+                        <div class="comment-body">
+                            <div class="comment-user">${c.userName}</div>
+                            <div class="comment-text">${c.text}</div>
+                            ${c.imageUrl ? `<img src="${c.imageUrl}" class="comment-image" onclick="window.viewImage('${c.imageUrl}')">` : ''}
+                            <div class="comment-actions">
+                                <span class="date">${new Date(c.createdAt?.toDate()).toLocaleDateString()}</span>
+                                <span class="action-link" onclick="window.replyTo('${c.userName}')">Reply</span>
+                                <span class="action-link" style="margin-left:auto" onclick="window.likeComment('${doc.id}', this)"><i class="far fa-heart"></i></span>
+                            </div>
+                        </div>
+                    `;
+                    list.appendChild(div);
+                });
+            });
+        }
+
+        // Send Comment
+        document.getElementById('sendBtn').addEventListener('click', async () => {
+            const input = document.getElementById('commentInput');
+            const fileInput = document.getElementById('imgUpload');
+            const text = input.value.trim();
+            const file = fileInput.files[0];
+
+            if (!text && !file) return;
+
+            // Change icon to loader temporarily
+            const btn = document.getElementById('sendBtn');
+            btn.className = "fas fa-spinner fa-spin";
+
+            let imageUrl = "";
+
+            try {
+                // Upload Image if exists
+                if (file) {
+                    const formData = new FormData();
+                    formData.append('file', file);
+                    formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
+
+                    const res = await fetch(CLOUDINARY_URL, { method: 'POST', body: formData });
+                    const data = await res.json();
+                    imageUrl = data.secure_url;
+                }
+
+                await addDoc(collection(db, "posts", postId, "comments"), {
+                    text: text,
+                    imageUrl: imageUrl,
+                    userId: currentUser.uid,
+                    userName: currentUser.displayName || "User",
+                    userAvatar: currentUser.photoURL || null,
+                    createdAt: serverTimestamp(),
+                    likes: 0
+                });
+
+                input.value = '';
+                fileInput.value = '';
+                replyingTo = null;
+                input.placeholder = "Say something...";
+
+            } catch (e) {
+                console.error("Comment Error", e);
+                alert("Failed to send comment.");
+            }
+            
+            btn.className = "fas fa-paper-plane";
+        });
+
+        // UI Helpers exported to window
+        window.replyTo = (name) => {
+            const input = document.getElementById('commentInput');
+            input.value = `@${name} `;
+            input.focus();
+            replyingTo = name;
+        };
+
+        window.viewImage = (url) => {
+            document.getElementById('fullImage').src = url;
+            document.getElementById('imageModal').style.display = 'flex';
+        };
+
+        window.likeComment = (commentId, elem) => {
+            // Visual toggle only for demo (implementing subcollection like for comments is similar to posts)
+            const icon = elem.querySelector('i');
+            if (icon.classList.contains('far')) {
+                icon.classList.remove('far');
+                icon.classList.add('fas');
+                elem.style.color = '#ff2442';
+            } else {
+                icon.classList.remove('fas');
+                icon.classList.add('far');
+                elem.style.color = '#666';
+            }
+        };
+
+    </script>
+</body>
+</html>
